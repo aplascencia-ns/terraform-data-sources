@@ -186,6 +186,78 @@ resource "aws_internet_gateway" "main_igw" {
   }
 }
 
+# ########### NACL ##############
+resource "aws_network_acl" "private_nacl" {
+  vpc_id = aws_vpc.main_vpc.id
+
+  tags = {
+    Name = "${var.cluster_name}-private-nacl"
+  }
+}
+
+# Rules INBOUND
+resource "aws_network_acl_rule" "allow_ssh_inbound" {
+  egress         = false
+  network_acl_id = aws_network_acl.private_nacl.id
+
+  rule_number = 100
+  protocol    = "tcp"
+  rule_action = "allow"
+  cidr_block  = aws_subnet.private_subnet[0].cidr_block
+  from_port   = 22
+  to_port     = 22
+}
+
+resource "aws_network_acl_rule" "allow_custom_inbound" {
+  egress         = false
+  network_acl_id = aws_network_acl.private_nacl.id
+
+  rule_number = 200
+  protocol    = "tcp"
+  rule_action = "allow"
+  cidr_block  = aws_subnet.private_subnet[0].cidr_block
+  from_port   = 32768
+  to_port     = 65535
+}
+
+# Rules OUTBOUND
+resource "aws_network_acl_rule" "allow_nacl_HTTP_outbound" {
+  egress         = true
+  network_acl_id = aws_network_acl.private_nacl.id
+
+  rule_number = 100
+  protocol    = "tcp"
+  rule_action = "allow"
+  cidr_block  = aws_subnet.private_subnet[0].cidr_block
+  from_port   = 80
+  to_port     = 80
+}
+
+resource "aws_network_acl_rule" "allow_nacl_HTTPS_outbound" {
+  egress         = true
+  network_acl_id = aws_network_acl.private_nacl.id
+
+  rule_number = 200
+  protocol    = "tcp"
+  rule_action = "allow"
+  cidr_block  = aws_subnet.private_subnet[0].cidr_block
+  from_port   = 443
+  to_port     = 443
+}
+
+resource "aws_network_acl_rule" "allow_nacl_custom_outbound" {
+  egress         = true
+  network_acl_id = aws_network_acl.private_nacl.id
+
+  rule_number = 300
+  protocol    = "tcp"
+  rule_action = "allow"
+  cidr_block  = aws_subnet.private_subnet[0].cidr_block
+  from_port   = 32768
+  to_port     = 65535
+}
+
+
 # ########### NAT ##############
 # resource "aws_eip" "forNat_eip" {
 #   vpc = true
@@ -223,18 +295,19 @@ resource "aws_route_table" "public_rt" {
   }
 }
 
-# resource "aws_route_table" "private_rt" {
-#   vpc_id = aws_vpc.main_vpc.id
+# PRIVATE Route table: 
+resource "aws_route_table" "private_rt" {
+  vpc_id = aws_vpc.main_vpc.id
 
-#   route {
-#     cidr_block = "0.0.0.0/0"
-#     gateway_id = aws_nat_gateway.main_nat_gw.id
-#   }
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main_igw.id # aws_nat_gateway.main_nat_gw.id
+  }
 
-#   tags = {
-#     Name = "${var.cluster_name}-private-rt"
-#   }
-# }
+  tags = {
+    Name = "${var.cluster_name}-private-rt"
+  }
+}
 
 
 # ######### PUBLIC Subnet assiosation with rotute table    ######
@@ -245,8 +318,8 @@ resource "aws_route_table_association" "public_rta" {
 }
 
 # ########## PRIVATE Subnets assiosation with rotute table ######
-# resource "aws_route_table_association" "private_rta" {
-#   count          = 2
-#   subnet_id      = element(aws_subnet.private_subnet.*.id, count.index) # "aws_subnet.private_subnet.*" #element(aws_subnet.private_subnet.*.id, count.index) # aws_subnet.private_subnet.id
-#   route_table_id = aws_route_table.private_rt.id
-# }
+resource "aws_route_table_association" "private_rta" {
+  count          = 1
+  subnet_id      = element(aws_subnet.private_subnet.*.id, count.index) # "aws_subnet.private_subnet.*" #element(aws_subnet.private_subnet.*.id, count.index) # aws_subnet.private_subnet.id
+  route_table_id = aws_route_table.private_rt.id
+}

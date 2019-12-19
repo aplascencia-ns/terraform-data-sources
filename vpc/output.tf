@@ -7,7 +7,7 @@ output "vpc_id" {
 # }
 
 output "bastion_public_ip" {
-  value = aws_instance.bastion.*
+  value = aws_instance.bastion.public_ip
 }
 
 # output "public_subnet_1_cidr_block" {
