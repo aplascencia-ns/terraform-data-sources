@@ -26,33 +26,6 @@ resource "aws_vpc" "main_vpc" {
   }
 }
 
-
-# variable "vpc_id" {}
-
-data "aws_vpc" "main_vpc" {
-  id = aws_vpc.main_vpc.id
-}
-
-# variable "subnet1" {
-#   type = string
-#   default = "${var.cluster_name}_Public-Subnet-1"
-# }
-
-
-# data "aws_subnet" "subnet_public_1" {
-#   filter {
-#     name = "tag:Name"
-#     # values = ["webservers-VPC_Public-*"]
-#     values = ["webservers-VPC_Public-Subnet-1"] # insert value here
-#   }
-# }
-# resource "aws_subnet" "example" {
-#   vpc_id            = "${data.aws_vpc.selected.id}"
-#   availability_zone = "us-east-1a"
-#   cidr_block        = "${cidrsubnet(data.aws_vpc.selected.cidr_block, 4, 1)}"
-# }
-
-
 # PUBLIC SUBNETS
 # --------------------------------------
 resource "aws_subnet" "public_subnet" {
@@ -60,9 +33,6 @@ resource "aws_subnet" "public_subnet" {
   vpc_id            = aws_vpc.main_vpc.id
   cidr_block        = cidrsubnet(var.network_cidr, 8, count.index)             # 10.0.0.0/24 
   availability_zone = data.aws_availability_zones.available.names[count.index] # AZa
-
-  # availability_zone = element(var.availability_zones, count.index)
-  # availability_zone = element(data.aws_availability_zones.all.names, count.index)
 
   tags = {
     Name = "${var.cluster_name}_Public-Subnet-${count.index + 1}" #-${element(data.aws_availability_zones.available.names, count.index)}"
@@ -76,9 +46,6 @@ resource "aws_subnet" "private_subnet" {
   vpc_id            = aws_vpc.main_vpc.id
   cidr_block        = cidrsubnet(var.network_cidr, 8, count.index + 1) # + 2 because I created one public subnet
   availability_zone = data.aws_availability_zones.available.names[count.index]
-
-
-  # availability_zone = element(var.availability_zones, count.index)
 
   tags = {
     Name = "${var.cluster_name}_Private-Subnet-${count.index + 1}" #-${element(data.aws_availability_zones.available.names, count.index)}"
@@ -170,14 +137,10 @@ resource "aws_key_pair" "bastion_key" {
 }
 
 
-
-
-
-
 # ---------------------------------------------------------------------------------------------------------------------
 #  NETWORKING
 # ---------------------------------------------------------------------------------------------------------------------
-############# Internet Gateway
+############# Internet Gateway #############
 resource "aws_internet_gateway" "main_igw" {
   vpc_id = aws_vpc.main_vpc.id
 
@@ -195,6 +158,7 @@ resource "aws_network_acl" "private_nacl" {
   }
 }
 
+# Adding Rules to a Private Network ACL
 # Rules INBOUND
 resource "aws_network_acl_rule" "allow_ssh_inbound" {
   egress         = false
@@ -310,14 +274,14 @@ resource "aws_route_table" "private_rt" {
 }
 
 
-# ######### PUBLIC Subnet assiosation with rotute table    ######
+# ######### PUBLIC Subnet assiosation with rotute table #############
 resource "aws_route_table_association" "public_rta" {
   count          = 1
   subnet_id      = element(aws_subnet.public_subnet.*.id, count.index) #aws_subnet.public_subnet.id 
   route_table_id = aws_route_table.public_rt.id
 }
 
-# ########## PRIVATE Subnets assiosation with rotute table ######
+# ########## PRIVATE Subnets assiosation with rotute table #############
 resource "aws_route_table_association" "private_rta" {
   count          = 1
   subnet_id      = element(aws_subnet.private_subnet.*.id, count.index) # "aws_subnet.private_subnet.*" #element(aws_subnet.private_subnet.*.id, count.index) # aws_subnet.private_subnet.id
