@@ -52,6 +52,19 @@ resource "aws_subnet" "private_subnet" {
   }
 }
 
+# PRIVATE INSTANCE
+resource "aws_instance" "private_instance" {
+  ami                         = "ami-00068cd7555f543d5" # data.aws_ami.ubuntu_18_04.id # "ami-969ab1f6"
+  instance_type               = var.instance_type #"t2.micro"
+  vpc_security_group_ids      = [aws_security_group.bastion_private_sg.id]
+  subnet_id                   = aws_subnet.private_subnet[0].id
+
+  tags = {
+    Name = "${var.cluster_name}-private"
+  }
+}
+
+
 # ---------------------------------------------------------------------------------------------------------------------
 # BASTION HOST
 # ---------------------------------------------------------------------------------------------------------------------
