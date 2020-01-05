@@ -14,6 +14,14 @@ provider "aws" {
 ################
 data "aws_availability_zones" "available" {}
 
+# data "aws_internet_gateway" "default" {
+#   filter {
+#     name   = "attachment.vpc-id"
+#     values = [aws_vpc.this.id]
+#   }
+# }
+
+
 ################
 # VPC
 ################
@@ -69,53 +77,86 @@ resource "aws_internet_gateway" "this" {
   }
 }
 
-################
-# Publiс Route Tables
-################
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.this.id
+##########################################
+# Default Route and Association Resources
+##########################################
+resource "aws_default_route_table" "default" {
+  default_route_table_id = aws_vpc.this.default_route_table_id
 
-  tags = {
-    Name = "${var.cluster_name}_public_rt"
+  route {
+    cidr_block = local.all_ips
+    gateway_id = aws_internet_gateway.this.id
   }
 }
 
-resource "aws_route" "public_igw" {
-  route_table_id         = aws_route_table.public.id
-  destination_cidr_block = local.all_ips # Destination
-  gateway_id             = aws_internet_gateway.this.id
-}
-
-################
-# Private Route Tables
-################
-resource "aws_route_table" "private" {
+resource "aws_main_route_table_association" "default" {
   vpc_id = aws_vpc.this.id
-
-  tags = {
-    Name = "${var.cluster_name}_private_rt"
-  }
+  route_table_id = aws_vpc.this.default_route_table_id
 }
 
-
-##########################
-# Route table association
-##########################
-# ######### Public Subnet  #############
 resource "aws_route_table_association" "public" {
   count = 2
 
   subnet_id      = element(aws_subnet.public.*.id, count.index)
-  route_table_id = aws_route_table.public.id
+  route_table_id = aws_vpc.this.default_route_table_id
 }
 
-# ######### Private Subnet #############
 resource "aws_route_table_association" "private" {
   count = 2
 
   subnet_id      = element(aws_subnet.private.*.id, count.index)
-  route_table_id = aws_route_table.private.id
+  route_table_id = aws_vpc.this.default_route_table_id
 }
+
+
+
+
+# ################
+# # Publiс Route Tables
+# ################
+# resource "aws_route_table" "public" {
+#   vpc_id = aws_vpc.this.id
+
+#   tags = {
+#     Name = "${var.cluster_name}_public_rt"
+#   }
+# }
+
+# resource "aws_route" "public_igw" {
+#   route_table_id         = aws_route_table.public.id
+#   destination_cidr_block = local.all_ips # Destination
+#   gateway_id             = aws_internet_gateway.this.id
+# }
+
+# ################
+# # Private Route Tables
+# ################
+# resource "aws_route_table" "private" {
+#   vpc_id = aws_vpc.this.id
+
+#   tags = {
+#     Name = "${var.cluster_name}_private_rt"
+#   }
+# }
+
+# ##########################
+# # Route table association
+# ##########################
+# # ######### Public Subnet  #############
+# resource "aws_route_table_association" "public" {
+#   count = 2
+
+#   subnet_id      = element(aws_subnet.public.*.id, count.index)
+#   route_table_id = aws_route_table.public.id
+# }
+
+# # ######### Private Subnet #############
+# resource "aws_route_table_association" "private" {
+#   count = 2
+
+#   subnet_id      = element(aws_subnet.private.*.id, count.index)
+#   route_table_id = aws_route_table.private.id
+# }
 
 
 
